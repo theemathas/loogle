@@ -66,7 +66,7 @@ inductive MyType : ℕ → ℕ → Type
 example : MyType 1 2 := {! !}
 
 -- Doesn't work yet
-example (x y z : ℕ) : ((x + y) + z = x + (y + z)) := (and.right {! !} {! !} {! !})
+example (x y z : ℕ) : ((x + y) + z = x + (y + z)) := {! !}
 
 -- Doesn't work yet
 example (α : Type u) (x : α) : α := {! !}
