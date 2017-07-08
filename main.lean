@@ -13,19 +13,20 @@ meta def tactic.will_succeed {α : Type u} (t : tactic α) : tactic bool :=
     in result.success b ts
 
 /-
-Returns `some n` if can fit after putting in `n` arguments
-Returns `none` if cannot fit
+Add arguments to `add_args_type` so it unifies with `fixed_type`
+Returns `some n` if unifiable after putting in `n` arguments
+Returns `none` if fails to unify
 -/
-meta def fit_num : expr → expr → tactic (option ℕ) := λ hole_type test_type, do
-  can_unify ← tactic.will_succeed $ tactic.unify hole_type test_type,
+meta def unify_with_args : expr → expr → tactic (option ℕ) := λ fixed_type add_args_type, do
+  can_unify ← tactic.will_succeed $ tactic.unify fixed_type add_args_type,
   if can_unify then
     return (some 0)
   else
-    match test_type with
+    match add_args_type with
     | (expr.pi arg_name _ arg_type body) := do
         arg_mvar ← tactic.mk_meta_var arg_type,
         let substituted_expr := body.instantiate_var arg_mvar,
-        recur_result ← fit_num hole_type substituted_expr,
+        recur_result ← unify_with_args fixed_type substituted_expr,
         return $ match recur_result with
         | some n := some (n + 1)
         | none := none
@@ -42,9 +43,9 @@ meta def any_value_that_fits : hole_command :=
     env ← tactic.get_env,
     ans ← env.fold (return []) $ λ decl accum, (do
       accum_result ← accum,
-      fit_num_result ← fit_num tar decl.type,
+      unify_with_args_result ← unify_with_args tar decl.type,
       return $
-        match fit_num_result with
+        match unify_with_args_result with
         | some n := ("(" ++ decl.to_name.to_string ++ string.join (list.repeat " {! !}" n) ++ ")", "") :: accum_result
         | none := accum_result
         end
