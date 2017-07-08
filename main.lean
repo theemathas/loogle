@@ -42,8 +42,6 @@ meta def any_value_that_fits : hole_command :=
     env ← tactic.get_env,
     ans ← env.fold (return []) $ λ decl accum, (do
       accum_result ← accum,
-      --if not (decl.to_name.to_string = "unsigned_sz") then return accum_result else do
-      --if not (decl.to_name.to_string = "MyType.constr") then return accum_result else do
       fit_num_result ← fit_num tar decl.type,
       return $
         match fit_num_result with
