@@ -2,6 +2,11 @@ import .logging
 
 universe u
 
+/- If list is empty, return none. Else, return some (head of list). -/
+def list.to_option {α : Type u} : list α → option α
+| [] := none
+| (x :: _) := some x
+
 /- Checks if applying a tactic will succeed without actually applying it -/
 meta def tactic.will_succeed {α : Type u} (t : tactic α) : tactic bool :=
   λ ts,
@@ -46,6 +51,37 @@ Returns `none` if fails to unify
 meta def unify_with_args (fixed_type add_args_type : expr) : tactic (option (list expr)) :=
   unify_with_args_inner fixed_type add_args_type []
 
+/-
+Search an environment for expressions of a certain type, possibly after adding arguments
+The third argument is the recursion limit
+-/
+meta def search_env_for_type (env : environment) : expr → ℕ → tactic (list string) := λ target_type recur_limit,
+  match recur_limit with
+  | 0 := return []
+  | (recur_limit' + 1) :=
+    env.fold (return []) $ λ decl accum, do
+      accum_val ← accum,
+      unify_with_args_val ← unify_with_args target_type decl.type,
+      match unify_with_args_val with
+        -- `arg_types` is a list of the types of the arguments needed to add to the value declared in `decl`
+      | some (arg_types : list expr) := do
+        -- `arg_exprs` is a list of possible arguments to add to the value declared in `decl`
+        arg_exprs : list (option string) ← monad.sequence $ arg_types.map $
+          (λ ty, do
+            (possible_exprs : list string) ← search_env_for_type ty recur_limit',
+            return possible_exprs.to_option
+          ),
+        -- If `arg_exprs` contain a single none, then `arg_exprs' is none
+        let arg_exprs' : option (list string) := monad.sequence arg_exprs,
+        return $ match arg_exprs' with
+        | some arg_exprs'' :=
+          ("(" ++ decl.to_name.to_string ++ " " ++ string.intercalate " " arg_exprs'' ++ ")") :: accum_val
+        | none := accum_val
+        end
+      | none := return accum_val
+      end
+  end
+
 @[hole_command]
 meta def any_value_that_fits : hole_command :=
 { name   := "Anything",
@@ -53,19 +89,8 @@ meta def any_value_that_fits : hole_command :=
   action := λ _, do
     tar ← tactic.target,
     env ← tactic.get_env,
-    ans ← env.fold (return []) $ λ decl accum, (do
-      accum_result ← accum,
-      unify_with_args_result ← unify_with_args tar decl.type,
-      return $
-        match unify_with_args_result with
-        | some arg_types :=
-            let args := string.join (list.repeat " {! !}" arg_types.length) in
-            ("(" ++ decl.to_name.to_string ++ args ++ ")", "") :: accum_result
-        | none := accum_result
-        end
-    ),
-    log $ string.intercalate "\n" $ ans.map to_string,
-    return ans
+    search_result ← search_env_for_type env tar 2,
+    return $ search_result.map $ λ s, (s, ""),
 }
 
 -- Applying hole command inserts `(unsigned_sz)`, which is a ℕ
