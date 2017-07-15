@@ -12,12 +12,25 @@ meta def tactic.will_succeed {α : Type u} (t : tactic α) : tactic bool :=
       end
     in result.success b ts
 
+meta def expr.is_mvar (e : expr) : bool :=
+  match e with
+  | (expr.mvar _ _) := tt
+  | _ := ff
+  end
+
 /-
 Add arguments to `add_args_type` so it unifies with `fixed_type`
 Returns `some n` if unifiable after putting in `n` arguments
 Returns `none` if fails to unify
 -/
-meta def unify_with_args : expr → expr → tactic (option ℕ) := λ fixed_type add_args_type, do
+private meta def unify_with_args : expr → expr → tactic (option ℕ) := λ fixed_type add_args_type,
+  /-
+  Special case: Ignore case where `add_args_type` is a metavariable.
+  Can occur, for example, when checking against the type of `and.right`
+  (`and.right` has type `∀ {a b : Prop}, a ∧ b → b`)
+  -/
+  if add_args_type.is_mvar then return none
+  else do
   can_unify ← tactic.will_succeed $ tactic.unify fixed_type add_args_type,
   if can_unify then
     return (some 0)
@@ -60,8 +73,7 @@ example := 1 + {! !}
 inductive MyType : ℕ → ℕ → Type
 | constr : ∀ x y : ℕ, MyType x y
 
--- Applying hole command should insert `(MyType.constr {! !} {! !})`
--- Doesn't work yet
+-- Applying hole command inserts `(MyType.constr {! !} {! !})`
 example : MyType 1 2 := {! !}
 
 -- Doesn't work yet
