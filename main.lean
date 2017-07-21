@@ -14,7 +14,7 @@ meta def tactic.will_succeed {α : Type u} (t : tactic α) : tactic bool :=
 
 meta def expr.is_mvar (e : expr) : bool :=
   match e with
-  | (expr.mvar _ _) := tt
+  | (expr.mvar _ _ _) := tt
   | _ := ff
   end
 
