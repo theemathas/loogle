@@ -90,7 +90,7 @@ meta def any_value_that_fits : hole_command :=
     tar ← tactic.target,
     env ← tactic.get_env,
     search_result ← search_env_for_type env tar 2,
-    return $ search_result.map $ λ s, (s, ""),
+    return $ search_result.map $ λ s, (s, "")
 }
 
 -- Applying hole command inserts `(unsigned_sz)`, which is a ℕ
